@@ -1,95 +1,83 @@
-<!DOCTYPE html>
-<html lang="en">
-
-  <head>
-    <meta charset="UTF-8">
-    <title>Untitled</title>
-    <link rel="stylesheet" href="./style.css">
-
-  </head>
-    
-  <body>
-  <div class="wrap">
+<div class="app">
   <header class="top">
-    <div>
-      <div class="title">Glam Doll Prompt Builder</div>
-      <div class="subtitle">Build manually, or generate 3 preset-styled options and pick one.</div>
+    <div class="brand">
+      <div class="title">Viral Glam Doll Prompt Builder</div>
+      <div class="tag">Bright Pink + Lime • Full options • Presets A/B/C • Randomizer</div>
     </div>
 
-    <div class="btnRow">
-      <button id="randBtn" class="btn">Randomize</button>
-      <button id="rand3Btn" class="btn btnPrimary">✨ Randomize 3 Styles</button>
-      <button id="clearBtn" class="btn btnGhost">Clear</button>
+    <div class="controls">
+      <div class="searchWrap">
+        <input id="search" type="text" placeholder="Search sections (lashes, nameplate, platform, heels, bag, etc.)..." />
+        <div id="sectionCount" class="countPill">0 sections</div>
+      </div>
+
+      <div class="btnRow">
+        <button id="btnBuild" class="btn ghost">Build Prompt</button>
+        <button id="btnCopy" class="btn">Copy</button>
+        <button id="btnRandom" class="btn">Randomize</button>
+        <button id="btnClear" class="btn danger">Clear All</button>
+        <button id="btnReset" class="btn ghost">Reset Defaults</button>
+      </div>
+
+      <div class="btnRow">
+        <button id="presetA" class="btn preset">Preset A</button>
+        <button id="presetB" class="btn preset">Preset B</button>
+        <button id="presetC" class="btn preset hot">Preset C</button>
+      </div>
     </div>
   </header>
 
-  <section class="layout">
-    <div class="left">
-      <div class="sectionTitle">Builder Controls</div>
-      <div id="controls" class="controls"></div>
+  <section class="grid">
+    <!-- LEFT: Sections -->
+    <div class="panel left">
+      <div class="panelHd">
+        <div class="panelTitle">Builder Sections</div>
+        <div class="panelSub">Tap chips to select. Multi-select chips stack.</div>
+      </div>
+      <div id="sections" class="sections"></div>
     </div>
 
-    <div class="right">
-      <div class="sectionTitle">Your 3 Options</div>
-
-      <div class="optionGrid">
-        <div class="optBox">
-          <div class="optTop">
-            <strong>Option A</strong>
-            <span id="badgeA" class="badge">
-              <span class="dot"></span><span class="badgeText">—</span>
-            </span>
-          </div>
-          <textarea id="promptA" class="optPrompt" placeholder="Option A prompt..."></textarea>
-          <div class="optActions">
-            <button id="copyA" class="btn btnGhost">Copy</button>
-            <button id="useA" class="btn btnPrimary">Use This</button>
-          </div>
-        </div>
-
-        <div class="optBox">
-          <div class="optTop">
-            <strong>Option B</strong>
-            <span id="badgeB" class="badge">
-              <span class="dot"></span><span class="badgeText">—</span>
-            </span>
-          </div>
-          <textarea id="promptB" class="optPrompt" placeholder="Option B prompt..."></textarea>
-          <div class="optActions">
-            <button id="copyB" class="btn btnGhost">Copy</button>
-            <button id="useB" class="btn btnPrimary">Use This</button>
-          </div>
-        </div>
-
-        <div class="optBox">
-          <div class="optTop">
-            <strong>Option C</strong>
-            <span id="badgeC" class="badge">
-              <span class="dot"></span><span class="badgeText">—</span>
-            </span>
-          </div>
-          <textarea id="promptC" class="optPrompt" placeholder="Option C prompt..."></textarea>
-          <div class="optActions">
-            <button id="copyC" class="btn btnGhost">Copy</button>
-            <button id="useC" class="btn btnPrimary">Use This</button>
-          </div>
-        </div>
+    <!-- RIGHT: Custom Inputs + Output -->
+    <div class="panel right">
+      <div class="panelHd">
+        <div class="panelTitle">Text + Nameplate + Custom Notes</div>
+        <div class="panelSub">These are the “missing” parts you asked for.</div>
       </div>
 
-      <div class="sectionTitle" style="margin-top:14px;">Prompt Output</div>
-      <textarea id="promptOut" class="promptOut" placeholder="Your final prompt will appear here..."></textarea>
+      <div class="form">
+        <label>Character name</label>
+        <input id="charName" type="text" placeholder="e.g., Bree" />
 
-      <div class="btnRow" style="margin-top:10px;">
-        <button id="copyBtn" class="btn btnPrimary">Copy Prompt</button>
-        <button id="copyBtn2" class="btn btnGhost">Copy Prompt (Alt)</button>
+        <label>Nameplate necklace text</label>
+        <input id="nameplate" type="text" placeholder='e.g., "QUEEN", "BOSS", "DMD"' />
+
+        <label>Text sticker quote (optional)</label>
+        <input id="quoteText" type="text" placeholder='e.g., "Girl Bye", "Rich Auntie Energy", "CEO Mode"' />
+
+        <label>Text sticker style (optional)</label>
+        <input id="quoteStyle" type="text" placeholder="e.g., puffy vinyl letters, glitter outline, sticker cutline" />
+
+        <label>Custom color notes</label>
+        <input id="customColors" type="text" placeholder="e.g., hot pink + lime, black + neon, cotton candy" />
+
+        <label>Custom bag notes</label>
+        <input id="customBag" type="text" placeholder="e.g., add bag charms, chain strap, mini top handle" />
+
+        <label>Custom shoe colorway</label>
+        <input id="customShoeColorway" type="text" placeholder="e.g., pink/lime with icy sole" />
+
+        <label>Extra notes</label>
+        <textarea id="extraNotes" rows="4" placeholder="Any extra styling notes..."></textarea>
       </div>
 
-      <div id="toast" class="toast"></div>
+      <div class="panelHd" style="margin-top:14px;">
+        <div class="panelTitle">Generated Prompt</div>
+        <div class="panelSub">Copy-ready. Includes nameplate + optional sticker text rules.</div>
+      </div>
+
+      <textarea id="output" rows="14"></textarea>
     </div>
   </section>
-</div>
-    <script  src="./script.js"></script>
 
-  </body>
-  
-</html>
+  <div id="toast" class="toast">Saved</div>
+</div>
