@@ -1,932 +1,836 @@
-/* =========================
-   Viral Glam Doll Builder
-   Full rebuild: working pills, custom add inputs, sticky right,
-   background bug fixed, 3-style generator included.
-========================= */
-
 const $ = (sel) => document.querySelector(sel);
+const state = {}; // single: string, multi: Set
 
-const state = {}; // sectionId -> Set(values) for multi OR string for single
-const customPools = {}; // sectionId -> array of custom values
-
-const PRESETS = [
-  {
-    key: "Ultra Polished 3D",
-    badge: "Ultra Polished 3D",
-    inject: {
-      art_style: "Ultra Polished 3D",
-      image_mode: "Full Color (vibrant glossy finish)",
-      render_style:
-        "glossy fashion-doll look with smooth airbrushed finish, soft studio lighting, dimensional depth, premium campaign polish, toy-box depth"
-    }
-  },
-  {
-    key: "Bratz-Inspired",
-    badge: "Bratz-Inspired",
-    inject: {
-      art_style: "Bratz-Inspired Fashion Doll",
-      image_mode: "Full Color (vibrant glossy finish)",
-      render_style:
-        "Bratz-inspired glam doll render, big expressive eyes, glossy pouty lips, high-shine highlights, studio lighting, premium campaign polish"
-    }
-  },
-  {
-    key: "Sticker Pack Line Art",
-    badge: "Sticker Pack",
-    inject: {
-      art_style: "Sticker Pack / Clipart Style",
-      image_mode: "Black & White Line Art (no shading)",
-      render_style:
-        "pure black ink line art only on white, thick outer contour lines, crisp outlines, no shading, no gray, no gradients, sticker pack ready"
-    }
-  }
-];
+function single(id, label, options, meta={}) { return { id, label, type:"single", options, ...meta }; }
+function multi(id, label, options, meta={}) { return { id, label, type:"multi", options, ...meta }; }
 
 const SECTIONS = [
-  // Core identity
-  single("subject", "Subject", [
-    "Adult Female", "Adult Male",
-    "Mature Adult Female", "Mature Adult Male",
-    "Young Adult Female", "Young Adult Male",
-    "Toddler Girl", "Toddler Boy",
-    "Baby Girl", "Baby Boy"
-  ], { icon:"👤", hint:"1 choice", default:"Adult Female"}),
+  single("skinTone","Skin Tone",[
+    "Deep Ebony (rich deep tone)",
+    "Cocoa Satin (deep warm brown)",
+    "Mocha Rich (deep mocha)",
+    "Caramel Bronze (golden caramel)",
+    "Honey Bronze (warm honey)",
+    "Chestnut Glow (reddish brown)",
+    "Espresso Noir (very deep)",
+    "Warm Beige (light warm)",
+    "Ivory (light neutral)",
+    "Golden Tan (sun-kissed)"
+  ],{default:"Caramel Bronze (golden caramel)"}),
 
-  single("ethnicity", "Ethnicity", [
-    "African American", "Black", "Black + Mixed", "Afro-Latina", "Latina", "Mixed",
-    "Albino"
-  ], { icon:"🌍", hint:"1 choice", default:"African American"}),
+  single("renderStyle","Render Style",[
+    "Ultra polished 3D CGI doll render",
+    "Toy box depth render (dimensional)",
+    "Soft glam illustration (high polish)",
+    "Sticker pack clean cutout look (glossy)",
+    "Bratz-inspired 4K semi-real glam render",
+    "Hyper-real glossy editorial doll render",
+    "Luxury product-shot render (studio tabletop)",
+    "Candy-coated plastiglaze render (super reflective)",
+    "High-fashion campaign lighting render (billboard polish)",
+    "Kawaii-chibi couture render (gloss + couture fabric detail)"
+  ],{default:"Ultra polished 3D CGI doll render"}),
 
-  single("skin_tone", "Skin Tone", [
-    "Golden Honey", "Cocoa Satin", "Mocha Rich", "Toffee Tan",
-    "Caramel Bronze", "Almond Beige", "Chestnut", "Deep Ebony",
-    "Espresso", "Porcelain", "Ivory", "Warm Beige"
-  ], { icon:"🍯", hint:"1 choice", default:"Golden Honey", allowCustom:true}),
+  single("proportions","Body & Proportions",[
+    "Oversized 2.5:1 head ratio, tiny waist, thick thighs (signature chibi glam)",
+    "Oversized head ratio, curvy silhouette, soft toy proportions",
+    "Slightly taller doll proportions, still chibi glam",
+    "Ultra-chibi exaggeration (bigger head, smaller torso, cute hands)",
+    "Runway doll proportions (longer legs, still glam face)"
+  ],{default:"Oversized 2.5:1 head ratio, tiny waist, thick thighs (signature chibi glam)"}),
 
-  // Art + image
-  single("art_style", "Art Style", [
-    "exaggerated chibi style",
-    "18k digital illustration",
-    "gouache mixed with watercolor",
-    "cgi caricature",
-    "hyper realistic illustration",
-    "bratz-inspired",
-    "hyper realistic bratz doll",
-    "chibi mixed with bratz",
-    "semi realism 4k bratz style",
-    "hand-drawn cartoon",
-    "high gloss chibi",
-    "glossy 3d chibi illustration",
-    "coloring page image",
-    "anime style illustration",
-    "pixar 3d render",
-    "retro vintage cartoon",
-    "comic book style"
-  ], { icon:"🎨", hint:"1 choice", default:"Ultra Polished 3D", allowCustom:true }),
+  single("skinFinish","Skin Finish",[
+    "Hyper smooth candy gloss skin, high shine mapping",
+    "Glass-skin glow with glossy highlights",
+    "Soft glow with controlled gloss (still shiny)",
+    "Butter-smooth airbrushed skin with wet highlight points",
+    "Vinyl toy sheen (plastic luxe glow)"
+  ],{default:"Hyper smooth candy gloss skin, high shine mapping"}),
 
-  single("image_mode", "Image Mode", [
-    "Full Color (vibrant glossy finish)",
-    "Toy Packaging / Retail Doll Box (candy gloss finish)",
-    "Sticker Pack / Clipart Style",
-    "Black & White Line Art (no shading)",
-    "Black & White Coloring Page"
-  ], { icon:"🖼️", hint:"1 choice", default:"Full Color (vibrant glossy finish)", allowCustom:true }),
+  // Face
+  single("eyes","Eyes",[
+    "Oversized almond sparkle eyes",
+    "Big round doll eyes with star highlights",
+    "Half-lidded glam stare",
+    "Side-eye baddie eyes",
+    "Wide-eyed surprised look",
+    "Fox-eye glam (lifted outer corner)",
+    "Bambi eyes (big + watery highlights)",
+    "Cat-eye gaze (sharp liner look)",
+    "Glitter iris twinkle (extra sparkle)",
+    "Heart highlight pupils (cute viral)"
+  ],{default:"Oversized almond sparkle eyes"}),
 
-  single("color_palette", "Color Palette", [
-    "Hot Pink + Gold + Blush Pink + Cream",
-    "Cotton Candy (pink + baby blue + lavender)",
-    "Blush Pink + Gold",
-    "Neutrals + Gold",
-    "Rose Gold + Cream",
-    "Purple + Gold",
-    "Monochrome Neutrals",
-    "Pastel Rainbow"
-  ], { icon:"🌈", hint:"1 choice", allowCustom:true }),
+  multi("lashes","Lashes",[
+    "Mega volume lashes",
+    "Wispy doll lashes",
+    "Bottom lash detail",
+    "Fluffy mink lashes",
+    "Dramatic outer flare",
+    "Spiky anime lashes (glam version)",
+    "Extra-long top lashes (photo-ready)",
+    "Doll cluster lashes (stacked)",
+    "Lower lash emphasis (flutter bottom)"
+  ],{default:["Mega volume lashes","Bottom lash detail"]}),
 
-  // Camera + pose
-  single("camera_angle", "Camera Angles", [
-    "front view",
-    "side profile",
-    "three-quarter view",
-    "low angle shot",
-    "high angle shot",
-    "bird's eye view",
-    "worm's eye view",
-    "over the shoulder",
-    "close-up portrait",
-    "full body shot",
-    "dutch angle",
-    "extreme close-up",
-    "cinematic crop (poster-style)"
-  ], { icon:"📸", hint:"1 choice", allowCustom:true }),
+  single("brows","Brows",[
+    "Snatched arched brows",
+    "Sharp precision brows",
+    "Soft straight brows",
+    "Raised brow attitude",
+    "Feathered glam brows",
+    "Ultra-snatched razor brows",
+    "Angled boss brows (power look)"
+  ],{default:"Snatched arched brows"}),
 
-  multi("pose_action", "Pose & Action", [
-    "hand on hip",
-    "sitting cross-legged",
-    "jumping",
-    "peace sign",
-    "dancing",
-    "taking selfie",
-    "leaning against wall",
-    "arms crossed",
-    "blowing a kiss",
-    "walking with attitude",
-    "pointing at camera",
-    "throwing up heart sign",
-    "finger snap pose",
-    "over-the-shoulder glance"
-  ], { icon:"🕺", hint:"multi", allowCustom:true }),
+  single("makeup","Makeup",[
+    "Full glam beat, shimmer lids, heavy highlight",
+    "Glitter cut-crease + glossy cheeks",
+    "Soft pink glam + blush pop",
+    "Bronzed glam + gold shimmer",
+    "Icy highlight + nude glam",
+    "Smoky eye + glossy lip combo",
+    "Neon liner accent + clean glam",
+    "Chrome shimmer lids (metallic pop)",
+    "Peachy soft-glow glam (viral)"
+  ],{default:"Full glam beat, shimmer lids, heavy highlight"}),
 
-  // Glam details
-  multi("expression", "Expression", [
-    "confident smirk",
-    "side-eye",
-    "soft smile",
-    "playful smile",
-    "pouty lips",
-    "wink",
-    "unbothered",
-    "fierce stare"
-  ], { icon:"😏", hint:"multi", allowCustom:true }),
+  single("lips","Lips",[
+    "Gloss bomb pout lips",
+    "Overlined nude gloss lips",
+    "Candy pink gloss lips",
+    "Cherry red glossy lips",
+    "Mocha gloss lips",
+    "Glass clear gloss lips (wet look)",
+    "Brown liner + caramel gloss",
+    "Hot pink jelly gloss",
+    "Soft matte nude + gloss topper"
+  ],{default:"Gloss bomb pout lips"}),
 
-  multi("brows", "Brows", [
-    "sharp precision brows",
-    "feathered brows",
-    "ombre brows",
-    "sculpted brows"
-  ], { icon:"🖊️", hint:"multi", allowCustom:true }),
-
-  multi("lashes", "Lashes", [
-    "dramatic volume lashes",
-    "bold strip lashes",
-    "fluffy mink lashes",
-    "bottom lash detail",
-    "double-stacked lashes"
-  ], { icon:"👁️", hint:"multi", allowCustom:true }),
-
-  multi("makeup", "Makeup", [
-    "full glam beat",
-    "glitter cut-crease",
-    "graphic liner",
-    "soft glam",
-    "freckles + blush",
-    "candy gloss lips"
-  ], { icon:"💄", hint:"multi", allowCustom:true }),
-
-  // Hair
-  single("hair_style", "Hair Style", [
-    "sleek middle part bone straight",
-    "deep wave glam",
-    "blunt bob",
-    "space buns",
-    "high ponytail",
-    "locs (bob)",
-    "body wave",
-    "half-up half-down",
-    "pixie cut",
-    "braided ponytail"
-  ], { icon:"💇🏾‍♀️", hint:"1 choice", allowCustom:true }),
-
-  single("hair_color", "Hair Color", [
-    "jet black",
-    "honey blonde",
-    "black with blonde money piece",
-    "caramel highlights",
-    "chestnut brown",
-    "copper auburn"
-  ], { icon:"🎀", hint:"1 choice", allowCustom:true }),
-
-  multi("edges", "Edges / Baby Hairs", [
-    "laid & sleek edges",
-    "dramatic swirl edges",
-    "ultra snatched edges",
-    "double swirl edges",
-    "soft swoop edges"
-  ], { icon:"✨", hint:"multi", allowCustom:true }),
+  multi("extrasFace","Face Extras",[
+    "Freckles",
+    "Beauty mark",
+    "Glitter tear duct highlight",
+    "Nose tip highlight sparkle",
+    "Under-eye shimmer",
+    "Glossy cheek highlight stamp",
+    "Tiny rhinestone face gems",
+    "Soft blush nose (cute)",
+    "Highlighter stripe on nose bridge",
+    "Lip gloss shine streak (extra)"
+  ]),
 
   // Nails
-  single("nails", "Nails", [
-    "xxl coffin nails",
-    "ombré nails",
-    "stiletto nails",
-    "square short nails (french tip)",
-    "pink candy gloss nails",
-    "rhinestone accent nails"
-  ], { icon:"💅", hint:"1 choice", allowCustom:true }),
+  single("nailLength","Nails Length",["Short","Medium","Long","XL","XXL"],{default:"Long"}),
+  single("nailShape","Nails Shape",["Square","Short square","Coffin","Almond","Stiletto","Round"],{default:"Almond"}),
+  single("nailFinish","Nails Finish",["High-gloss gel","Chrome mirror","French tip","Glitter ombré","Jelly gloss","Matte (with gloss top highlight)"],{default:"High-gloss gel"}),
+  single("nailColor","Nails Color",["Nude","Pink","Hot pink","Red","Orange","White","Black","Mocha","Gold chrome","Violet chrome","Lime green","Neon pink"],{default:"Hot pink"}),
+  multi("nailArt","Nail Art Details",["Rhinestones","Designer-inspired pattern","Heart accents","Butterfly accents","Swirl lines","Star decals","No extra nail art"],{default:["No extra nail art"]}),
 
-  // Outfit sets + split outfit
-  single("outfit_set", "Outfit Set", [
-    "glam streetwear",
-    "hoodie and sweatpants",
-    "designer top with denim jeans",
-    "sparkly mini dress",
-    "tracksuit",
-    "business attire",
-    "oversized cozy sweater with leggings",
-    "leather jacket with ripped jeans",
-    "t-shirt with dark jeans",
-    "crop top with cargo pants",
-    "satin pajama set",
-    "bomber jacket with joggers",
-    "tuxedo",
-    "baseball jersey",
-    "basketball jersey",
-    "puffer coat with jeans",
-    "tank top with baggy jeans",
-    "cute onesie",
-    "colorful romper",
-    "overalls with t-shirt",
-    "tutu dress",
-    "superhero costume",
-    "princess dress",
-    "denim jacket with shorts",
-    "striped shirt with leggings",
-    "dinosaur pajamas",
-    "rainbow hoodie",
-    "animal print dress",
-    "dungarees",
-    "sequined cocktail dress",
-    "velvet bodycon dress",
-    "silk slip dress with blazer",
-    "distressed boyfriend jeans with graphic tee",
-    "linen button-up with chino shorts",
-    "oversized denim jacket with sundress",
-    "no outfit set"
-  ], { icon:"🧥", hint:"1 choice", default:"no outfit set", allowCustom:true }),
+  // Hair
+  single("hairStyle","Hair Style",[
+    "Platinum blonde long waves under a cap",
+    "High snatch ponytail (sleek)",
+    "Messy glam bun with face-framing pieces",
+    "Waist-length bone straight silk press",
+    "Big curly volume hair",
+    "Blunt bob (sleek)",
+    "Half up half down (sleek + volume)",
+    "Space buns + long pieces",
+    "Long knotless braids (waist length)",
+    "Curly pony puff (defined curls)",
+    "Side part body waves (luxury)",
+    "90s flip ends (cute throwback)"
+  ],{default:"High snatch ponytail (sleek)"}),
 
-  single("top", "Top", [
-    "corset top",
-    "crop top",
-    "bodysuit",
-    "satin blouse",
-    "metallic top",
-    "tank top",
-    "cropped graphic tee (no brand)",
-    "graphic tee (no brand)",
-    "hoodie",
-    "off-shoulder sweater"
-  ], { icon:"👚", hint:"1 choice", allowCustom:true }),
+  single("hairColor","Hair Color",[
+    "Jet black","Platinum blonde","Soft black-brown","Rose pink","Copper auburn",
+    "Honey blonde","Burgundy wine","Chocolate brown","Blonde money pieces","Two-tone split dye",
+    "Neon pink","Lime green tips","Pink + black split dye","Lime + black split dye"
+  ],{default:"Jet black"}),
 
-  single("bottom", "Bottom", [
-    "wide-leg jeans",
-    "ripped jeans",
-    "metallic pants",
-    "skinny jeans",
-    "mini skirt",
-    "purple metallic mini skirt",
-    "shorts",
-    "joggers",
-    "leggings"
-  ], { icon:"👖", hint:"1 choice", allowCustom:true }),
+  single("cap","Hat / Cap",[
+    "No hat",
+    "Baseball cap (street luxe)",
+    "Designer cap (statement)",
+    "Beanie (cute street)",
+    "Trucker hat (baddie)",
+    "Bucket hat (fashion)",
+    "Oversized hoodie up (acts like hat)",
+    "Headband (cute glam)"
+  ],{default:"No hat"}),
 
-  single("outerwear", "Outerwear", [
-    "oversized denim jacket",
-    "statement coat",
-    "blazer",
-    "puffer jacket",
-    "leather jacket",
-    "bomber jacket",
-    "cardigan",
-    "no outerwear"
-  ], { icon:"🧣", hint:"1 choice", default:"no outerwear", allowCustom:true }),
+  single("edges","Edges / Baby Hairs",[
+    "Dramatic swirl edges",
+    "Laid sleek edges",
+    "Soft baby hairs",
+    "Sharp razor edges",
+    "No edges (clean hairline)",
+    "Extra swoop edges (double swirl)",
+    "Micro baby hairs (fine + neat)",
+    "Gelled edges (super glossy)"
+  ],{default:"Dramatic swirl edges"}),
 
-  // Shoes (big list)
-  single("shoes", "Shoes", [
-    "nike sneakers (generic no logos)",
-    "fuzzy slippers",
-    "stiletto heels",
-    "timberland boots (generic no logos)",
-    "rain boots",
-    "lace up sneakers (generic)",
-    "high top sneakers (generic)",
-    "air max style sneakers (generic no logos)",
-    "jordan style sneakers (generic no logos)",
-    "dressy shoes",
-    "open toe sandals",
-    "blinged heels",
-    "ugg boots (generic)",
-    "just socks",
-    "barefoot",
-    "light-up sneakers",
-    "velcro strap shoes",
-    "mary jane shoes",
-    "cowboy boots",
-    "platform sneakers",
-    "combat boots",
-    "thigh high boots",
-    "strap sandals",
-    "block heels",
-    "platform heel sandals (open toe)",
-    "wedge sandals",
-    "mary jane platforms"
-  ], { icon:"👟", hint:"1 choice", allowCustom:true }),
+  // Expression + pose
+  single("expression","Expression",[
+    "Shocked glam gasp (mouth open)",
+    "Surprised baddie",
+    "Playful wink",
+    "Girl bye side-eye",
+    "Soft smile",
+    "Serious model face",
+    "Smirk (confident)",
+    "Kissy face",
+    "Eyeroll (viral attitude)",
+    "Are you kidding me face",
+    "Laughing smile (joyful)"
+  ],{default:"Soft smile"}),
 
-  // Props / held items
-  multi("props", "Props / Held Items", [
-    "magic wand",
-    "sword",
-    "staff",
-    "microphone",
-    "guitar",
-    "skateboard",
-    "basketball",
-    "books",
-    "laptop",
-    "phone",
-    "shopping bags",
-    "coffee cup",
-    "balloon",
-    "flowers",
-    "gift box",
-    "no props"
-  ], { icon:"🧸", hint:"multi", allowCustom:true }),
+  single("pose","Pose",[
+    "Hands on cheeks shock pose (viral)",
+    "Selfie pose holding phone",
+    "Peace sign pose",
+    "Hand on hip attitude pose",
+    "Over-the-shoulder glance",
+    "Walking with attitude",
+    "Crouch pose (street baddie)",
+    "Hair flip pose",
+    "Pointing at camera (callout)",
+    "Arms crossed (boss energy)",
+    "Blowing kiss",
+    "Leaning forward (close-up energy)"
+  ],{default:"Hand on hip attitude pose"}),
 
-  // Pets
-  single("pet", "Companion Animal / Pet", [
-    "fluffy puppy",
-    "playful kitten",
-    "bunny rabbit",
-    "hamster",
-    "bird on shoulder",
-    "tiny dragon",
-    "magical unicorn",
-    "baby panda",
-    "teddy bear",
-    "guinea pig",
-    "ferret",
-    "baby fox",
-    "baby raccoon",
-    "hedgehog",
-    "chinchilla",
-    "no pet"
-  ], { icon:"🐾", hint:"1 choice", default:"no pet", allowCustom:true }),
+  // Outfit sets
+  single("outfitSet","Outfit Set",[
+    "None (build separate top/bottom)",
+    "Velour tracksuit set (luxury lounge)",
+    "Hoodie + sweatpants set (street cozy)",
+    "Faux fur set (statement)",
+    "Denim set (cropped jacket + jeans)",
+    "Boss blazer set (CEO energy)",
+    "Leather set (noir baddie)",
+    "Pink sparkle set (viral)",
+    "Mocha neutral lounge set (soft luxe)",
+    "Airport luxe set (travel baddie)",
+    "Tennis skirt set (cute sporty)",
+    "Two-piece knit set (snatched)",
+    "Corset + mini skirt set (night out)",
+    "Graphic tee + cargo set (street)"
+  ],{default:"None (build separate top/bottom)"}),
 
-  // Theme / cosplay
-  single("theme", "Character Theme / Cosplay", [
-    "superhero",
-    "anime character",
-    "video game character",
-    "disney princess style",
-    "magical girl",
-    "ninja warrior",
-    "pirate",
-    "cowboy/cowgirl",
-    "astronaut",
-    "mermaid",
-    "fairy",
-    "vampire",
-    "angel",
-    "elf",
-    "robot",
-    "zombie",
-    "witch/wizard",
-    "knight",
-    "samurai",
-    "rockstar",
-    "no theme"
-  ], { icon:"🦸🏾‍♀️", hint:"1 choice", default:"no theme", allowCustom:true }),
+  single("outerwear","Outerwear",[
+    "None",
+    "Faux fur coat (full plush)",
+    "Cropped puffer jacket",
+    "Glossy jacket (patent shine)",
+    "Varsity jacket",
+    "Denim jacket (cropped)",
+    "Leather moto jacket",
+    "Trench coat (luxury)",
+    "Fur-trim hoodie jacket",
+    "Oversized cardigan (soft luxe)",
+    "Cropped blazer (snatched)",
+    "Longline blazer (boss)",
+    "Shacket (street)",
+    "Bomber jacket (cute)"
+  ],{default:"None"}),
 
-  // Fantasy
-  multi("fantasy", "Fantasy Elements", [
-    "fairy wings",
-    "angel wings",
-    "phoenix wings",
-    "bat wings",
-    "dragon wings",
-    "magical aura",
-    "glowing energy",
-    "floating sparkles",
-    "mystical symbols",
-    "elemental powers",
-    "floating hearts",
-    "no fantasy elements"
-  ], { icon:"🪽", hint:"multi", allowCustom:true }),
+  // ✅ MORE TOPS
+  single("top","Top",[
+    "Fitted baby tee",
+    "Cropped tank top",
+    "Sports bra top",
+    "Graphic glam tee",
+    "Hoodie top",
+    "Corset top (fashion)",
+    "Off-shoulder lounge top",
+    "Zip-up cropped jacket (top)",
+    "Sweater crop (soft)",
+    "Bodysuit (snatched)",
+    "Tube top (glam)",
+    "Halter top (night out)",
+    "Bustier top (sparkle)",
+    "Mesh long-sleeve top (layer)",
+    "Cropped button-up (preppy)",
+    "Puffer vest (street)",
+    "Ribbed knit top (tight)",
+    "Turtleneck crop (baddie)"
+  ],{default:"Fitted baby tee"}),
 
-  // Baby (when toddler/baby chosen, but still optional)
-  multi("baby_items", "Baby", [
-    "baby bottle",
-    "pacifier",
-    "baby blanket",
-    "stuffed animal",
-    "baby rattle",
-    "teething toy",
-    "baby bib",
-    "onesie",
-    "baby booties",
-    "diaper",
-    "baby hat",
-    "stroller"
-  ], { icon:"🍼", hint:"multi", allowCustom:true }),
+  // ✅ MORE BOTTOMS
+  single("bottom","Bottom",[
+    "Ripped jeans",
+    "Cargo pants",
+    "Leather pants",
+    "Stacked sweatpants",
+    "Velour joggers",
+    "Biker shorts",
+    "Mini skirt",
+    "Wide-leg denim",
+    "Leggings (glossy athleisure)",
+    "Flare pants (cute)",
+    "Tennis skirt (cute)",
+    "Pleated mini skirt (preppy)",
+    "Skort (sporty)",
+    "High-waist shorts (snatched)",
+    "Micro mini skirt (night out)",
+    "Sparkle pants (party)",
+    "Baggy street jeans (oversized)",
+    "Straight-leg jeans (clean)"
+  ],{default:"Ripped jeans"}),
 
-  // Accessories + jewelry
-  multi("accessories", "Accessories", [
-    "oversized hoop earrings",
-    "layered gold necklaces",
-    "layered silver necklaces",
-    "stacked rings",
-    "charm bracelet",
-    "luxury watch (no logos)",
-    "statement earrings",
-    "bangle stack",
-    "silk scarf",
-    "runway oversized sunglasses"
-  ], { icon:"💎", hint:"multi", allowCustom:true }),
+  single("setStyle","Style Vibe",[
+    "Street luxe",
+    "Soft bougie lounge",
+    "Pink sparkle glam",
+    "Luxury neutral",
+    "Black + neon baddie",
+    "Hot pink + lime pop",
+    "Mocha rich neutrals",
+    "Neon pop street glam"
+  ],{default:"Hot pink + lime pop"}),
 
-  single("bag", "Bag", [
-    "crossbody bag (no logos)",
-    "clutch bag (no logos)",
-    "handbag (no logos)",
-    "no bag"
-  ], { icon:"👜", hint:"1 choice", default:"no bag", allowCustom:true }),
+  // ✅ MORE SHOES: platforms + sandals + cute heels
+  single("shoes","Shoes",[
+    "Nike Air Max 90",
+    "Nike Air Max 95",
+    "Nike Air Max 97",
+    "Nike Air Max Plus (TN)",
+    "Nike Air Force 1",
+    "Nike Dunk Low",
+    "Nike Dunk High",
+    "Nike Blazer Mid",
+    "Nike Vapormax",
+    "Nike Huarache",
+    "Jordan 1 High",
+    "Jordan 1 Low",
+    "Jordan 3",
+    "Jordan 4",
+    "Jordan 11",
+    "New Balance 550",
+    "Adidas Superstar",
+    "Timberland boots",
+    "UGG boots",
+    "Crocs",
 
-  // Tattoos + body jewelry
-  multi("tattoos", "Tattoos", [
-    "forearm script tattoo",
-    "small wrist tattoo",
-    "hand tattoo",
-    "thigh tattoo",
-    "no tattoos"
-  ], { icon:"🖋️", hint:"multi", allowCustom:true }),
+    "Platform slide sandals (puffy)",
+    "Platform thong sandals (cute)",
+    "Platform strappy sandals (night out)",
+    "Chunky platform sandals (fashion)",
+    "Platform mule heels (glam)",
+    "Platform block-heel sandals",
+    "Clear platform heels (viral)",
+    "Clear strap heels (cute)",
+    "Chunky heel sandals (street glam)",
+    "Kitten heel sandals (soft glam)",
+    "Pointed toe pumps (boss)",
+    "Sock boots (baddie)",
+    "Platform sneakers (extra height)",
+    "Platform combat boots (edgy)"
+  ],{default:"Nike Air Max 97"}),
 
-  multi("body_jewelry", "Body Jewelry / Piercings", [
-    "nose hoop",
-    "nose stud",
-    "lip piercing",
-    "cute nose chain",
-    "no piercings"
-  ], { icon:"✨", hint:"multi", allowCustom:true }),
+  single("shoeColorway","Shoe Colorway",[
+    "White/Black",
+    "White/Hot Pink",
+    "White/Lime",
+    "Hot Pink/Lime",
+    "Black/Hot Pink",
+    "Black/Lime",
+    "Mocha/Cream",
+    "Neon pop (bright accents)",
+    "All black (stealth)",
+    "All white (clean)"
+  ],{default:"Hot Pink/Lime"}),
 
-  // Background (bug fix)
-  single("background", "Background", [
-    "no background",
-    "white background only",
-    "soft blush gradient",
-    "pink studio backdrop",
-    "lavender bokeh backdrop",
-    "luxury penthouse lounge",
-    "yacht weekend",
-    "tropical island",
-    "leopard splash backdrop"
-  ], { icon:"🌅", hint:"1 choice", default:"no background", allowCustom:true }),
+  // Bags
+  single("bag","Pocketbook / Bag",[
+    "None",
+    "Louis Vuitton Neverfull",
+    "Louis Vuitton Speedy",
+    "Louis Vuitton Pochette",
+    "Louis Vuitton Alma",
+    "Chanel Classic Flap",
+    "Chanel Boy Bag",
+    "Gucci Marmont",
+    "Gucci Dionysus",
+    "Dior Saddle Bag",
+    "Dior Book Tote",
+    "Prada Nylon Bag",
+    "Prada Galleria",
+    "Fendi Baguette",
+    "Balenciaga City Bag",
+    "YSL Lou Camera Bag",
+    "YSL Kate Chain Bag",
+    "Hermès Birkin",
+    "Hermès Kelly"
+  ],{default:"Chanel Classic Flap"}),
 
-  // Rules
-  single("rules", "Rules", [
-    "no logos, no brand names, no text, no watermarks. High resolution, print-ready.",
-    "no logos, no text, no watermarks. High resolution, print-ready.",
-    "logo-free clothing and accessories, no real brand marks, no watermark, print-ready."
-  ], { icon:"🧾", hint:"1 choice", default:"no logos, no brand names, no text, no watermarks. High resolution, print-ready." }),
+  single("bagColorway","Bag Colorway",[
+    "Black","White","Tan","Mocha","Hot Pink","Lime Green","Neon Pink","Neon Lime","Monogram pattern","Quilted leather"
+  ],{default:"Hot Pink"}),
 
-  // Render style free text (optional)
-  single("render_style", "Render / Finish Notes", [
-    "glossy toy-box depth, soft studio lighting, smooth airbrushed finish, premium campaign polish",
-    "high-gloss skin highlights, dimensional depth, candy gloss finish",
-    "studio-lit, ultra clean, pinterest-worthy, print-ready polish"
-  ], { icon:"✨", hint:"1 choice", allowCustom:true })
+  single("bagHardware","Bag Hardware",[
+    "Gold hardware","Silver hardware","Rose gold hardware","Gunmetal hardware","Pearl hardware detail"
+  ],{default:"Gold hardware"}),
+
+  single("bagCarry","Bag Carry Style",[
+    "Handheld",
+    "On shoulder",
+    "Crossbody",
+    "Arm crook carry",
+    "Hanging off wrist",
+    "Two-hand clutch hold",
+    "Bag on forearm + phone in other hand"
+  ],{default:"On shoulder"}),
+
+  // Jewelry stack
+  multi("jewelry","Jewelry Stack",[
+    "Oversized gold hoops",
+    "Diamond studs",
+    "Stacked rings",
+    "Bangle stack",
+    "Layered chains",
+    "Watch",
+    "Ear cuffs",
+    "Nameplate necklace (use text box)",
+    "Anklet chain",
+    "Charm bracelet",
+    "Big statement pendant",
+    "Pearl + gold mix (luxury)"
+  ],{default:["Oversized gold hoops","Stacked rings","Layered chains"]}),
+
+  // Props
+  single("prop","Prop",[
+    "None",
+    "Phone in hand",
+    "Glitter phone case",
+    "Sunglasses",
+    "Coffee cup",
+    "Car keys (luxury key fob)",
+    "Shopping bags (designer haul)",
+    "Lip gloss in hand",
+    "Mirror compact",
+    "Starbucks cup + selfie combo"
+  ],{default:"Phone in hand"}),
+
+  // ✅ TEXT STICKER TEMPLATE OPTIONS (this helps you add words like the examples)
+  single("textSticker","Text Sticker Template",[
+    "None (no sticker text)",
+    "Bubble sticker letters with white cutline",
+    "Puffy vinyl letters with shadow depth",
+    "Glitter outline text sticker (sparkle edge)",
+    "Chrome text sticker (mirror shine)",
+    "Handwritten script sticker (bold)",
+    "Blocky caption sticker (viral meme style)",
+    "Neon glow text sticker (pink/lime)",
+    "Ransom-note collage sticker (cute chaos)",
+    "3D foam letters sticker (toy-box depth)"
+  ],{default:"None (no sticker text)"}),
+
+  single("textPlacement","Text Placement",[
+    "No text placement",
+    "Top-left corner",
+    "Top-right corner",
+    "Bottom-left corner",
+    "Bottom-right corner",
+    "Centered above head",
+    "Across the bottom banner",
+    "Floating beside character"
+  ],{default:"No text placement"}),
+
+  // Background + lighting
+  single("background","Background",[
+    "Clean studio gradient backdrop",
+    "Hot pink gradient background",
+    "Lime gradient background",
+    "Pink + lime duotone gradient",
+    "Neon glow background (pink/lime)",
+    "Black glossy studio background (luxury)",
+    "Glitter sparkle background (pink)",
+    "Chrome glow background (neon)"
+  ],{default:"Pink + lime duotone gradient"}),
+
+  single("lighting","Lighting",[
+    "Studio glam lighting with sparkle bokeh",
+    "Soft beauty ringlight glow",
+    "High-contrast fashion lighting",
+    "Neon rim light + glossy highlights (pink/lime)",
+    "Product-shot lighting (high specular)"
+  ],{default:"Neon rim light + glossy highlights (pink/lime)"}),
+
+  multi("noWords","No-Words Rules",[
+    "No watermarks"
+  ],{default:["No watermarks"]}),
 ];
 
-/* ---------- helpers to build section definitions ---------- */
-function single(id, label, options, meta={}) {
-  return { id, label, type:"single", options, ...meta };
-}
-function multi(id, label, options, meta={}) {
-  return { id, label, type:"multi", options, ...meta };
-}
-
-/* ---------- init defaults ---------- */
-function initState(){
-  SECTIONS.forEach(sec=>{
-    customPools[sec.id] = [];
-    if(sec.type==="single"){
-      state[sec.id] = sec.default ?? "";
-      if(!state[sec.id] && sec.options?.length) state[sec.id] = sec.options[0];
-    }else{
-      state[sec.id] = new Set();
+// Presets (updated to match pink/lime)
+const PRESETS = {
+  A: {
+    badge:"Soft Bougie (clean glam)",
+    picks:{
+      setStyle:"Soft bougie lounge",
+      outfitSet:"Mocha neutral lounge set (soft luxe)",
+      shoes:"Platform mule heels (glam)",
+      shoeColorway:"Mocha/Cream",
+      bag:"YSL Lou Camera Bag",
+      bagColorway:"Tan",
+      bagHardware:"Gold hardware",
+      bagCarry:"Crossbody",
+      expression:"Soft smile",
+      pose:"Over-the-shoulder glance",
+      background:"Clean studio gradient backdrop",
+      lighting:"Soft beauty ringlight glow",
+      textSticker:"None (no sticker text)",
+      textPlacement:"No text placement"
     }
-  });
-}
-
-/* ---------- UI render ---------- */
-function renderControls(){
-  const root = $("#controls");
-  root.innerHTML = "";
-
-  SECTIONS.forEach(sec=>{
-    const card = document.createElement("div");
-    card.className = "card";
-    card.dataset.section = sec.id;
-
-    const top = document.createElement("div");
-    top.className = "cardTop";
-
-    const title = document.createElement("div");
-    title.className = "cardTitle";
-    title.innerHTML = `<span>${sec.icon ?? "✨"}</span> <span>${sec.label}</span>`;
-
-    const hint = document.createElement("div");
-    hint.className = "cardHint";
-    hint.textContent = sec.hint ?? (sec.type==="single" ? "1 choice" : "multi");
-
-    top.appendChild(title);
-    top.appendChild(hint);
-
-    const pills = document.createElement("div");
-    pills.className = "pills";
-
-    const allOptions = [...sec.options, ...customPools[sec.id]];
-    allOptions.forEach(opt=>{
-      const pill = document.createElement("div");
-      pill.className = "pill";
-      pill.textContent = opt;
-      pill.dataset.value = opt;
-      pill.dataset.section = sec.id;
-
-      if(sec.type==="single"){
-        if((state[sec.id] || "").toLowerCase() === opt.toLowerCase()) pill.classList.add("active");
-      }else{
-        if(state[sec.id].has(opt)) pill.classList.add("active");
-      }
-      pills.appendChild(pill);
-    });
-
-    card.appendChild(top);
-    card.appendChild(pills);
-
-    if(sec.allowCustom){
-      const row = document.createElement("div");
-      row.className = "customRow";
-      row.innerHTML = `
-        <input type="text" data-custom-input="${sec.id}" placeholder="Add your own..." />
-        <button class="btn btnPrimary" data-custom-add="${sec.id}">+ Add</button>
-      `;
-      card.appendChild(row);
+  },
+  B: {
+    badge:"Pink + Lime Pop (viral)",
+    picks:{
+      setStyle:"Hot pink + lime pop",
+      outfitSet:"Pink sparkle set (viral)",
+      outerwear:"Cropped puffer jacket",
+      shoes:"Clear platform heels (viral)",
+      shoeColorway:"Hot Pink/Lime",
+      bag:"Chanel Classic Flap",
+      bagColorway:"Hot Pink",
+      bagHardware:"Gold hardware",
+      bagCarry:"On shoulder",
+      expression:"Playful wink",
+      pose:"Selfie pose holding phone",
+      background:"Neon glow background (pink/lime)",
+      lighting:"Neon rim light + glossy highlights (pink/lime)",
+      textSticker:"Bubble sticker letters with white cutline",
+      textPlacement:"Bottom-right corner"
     }
-
-    root.appendChild(card);
-  });
-}
-
-/* ---------- selection logic ---------- */
-function setSingle(sectionId, value){
-  // Background bug fix: if "no background", store exactly that and builder will omit it
-  state[sectionId] = value;
-}
-
-function toggleMulti(sectionId, value){
-  const set = state[sectionId];
-  if(set.has(value)) set.delete(value);
-  else set.add(value);
-
-  // If they click "no xyz" options, keep it exclusive
-  const lowers = [...set].map(v=>v.toLowerCase());
-  const hasNo = lowers.some(v=>v.startsWith("no "));
-  if(hasNo){
-    // Keep only the "no ..." selection(s)
-    [...set].forEach(v=>{
-      if(!v.toLowerCase().startsWith("no ")) set.delete(v);
-    });
-  }
-}
-
-/* ---------- prompt building ---------- */
-function cleanList(arr){
-  return arr.filter(Boolean).map(s=>s.trim()).filter(Boolean);
-}
-
-function buildPromptFromState(overrideInject=null){
-  const get = (id) => state[id];
-  const getMulti = (id) => [...state[id]];
-
-  const subject = get("subject");
-  const ethnicity = get("ethnicity");
-  const skin = get("skin_tone");
-
-  let art_style = get("art_style");
-  let image_mode = get("image_mode");
-  let render_style = get("render_style");
-
-  if(overrideInject){
-    art_style = overrideInject.art_style ?? art_style;
-    image_mode = overrideInject.image_mode ?? image_mode;
-    render_style = overrideInject.render_style ?? render_style;
-  }
-
-  const palette = get("color_palette");
-  const camera = get("camera_angle");
-
-  const hair = cleanList([
-    get("hair_style") ? `hair style: ${get("hair_style")}` : "",
-    get("hair_color") ? `hair color: ${get("hair_color")}` : "",
-    getMulti("edges").length ? `edges/baby hairs: ${getMulti("edges").join(", ")}` : ""
-  ]).join(" | ");
-
-  const face = cleanList([
-    getMulti("expression").length ? `expression: ${getMulti("expression").join(", ")}` : "",
-    getMulti("brows").length ? `eyebrows: ${getMulti("brows").join(", ")}` : "",
-    getMulti("lashes").length ? `lashes: ${getMulti("lashes").join(", ")}` : "",
-    getMulti("makeup").length ? `makeup: ${getMulti("makeup").join(", ")}` : ""
-  ]).join(" | ");
-
-  const outfitSet = get("outfit_set");
-  const top = get("top");
-  const bottom = get("bottom");
-  const outerwear = get("outerwear");
-  const shoes = get("shoes");
-
-  const props = getMulti("props");
-  const fantasy = getMulti("fantasy");
-  const babyItems = getMulti("baby_items");
-
-  const accessories = getMulti("accessories");
-  const tattoos = getMulti("tattoos");
-  const bodyJewelry = getMulti("body_jewelry");
-
-  const bag = get("bag");
-  const nails = get("nails");
-  const theme = get("theme");
-  const pet = get("pet");
-
-  const background = get("background");
-  const rules = get("rules");
-
-  const lines = [];
-
-  // Identity
-  lines.push(`Create a ${subject} ${ethnicity} glam doll character with ${skin} skin tone.`);
-
-  // Art + image
-  lines.push(`Art style: ${art_style}.`);
-  lines.push(`Image mode: ${image_mode}.`);
-  if(camera) lines.push(`Camera angle/shot: ${camera}.`);
-  if(palette) lines.push(`Color palette: ${palette}.`);
-
-  // Pose
-  const poses = getMulti("pose_action");
-  if(poses.length) lines.push(`Pose/action: ${poses.join(", ")}.`);
-
-  // Face + glam
-  if(face) lines.push(`Face glam: ${face}.`);
-
-  // Nails + hair
-  if(nails) lines.push(`Nails: ${nails}.`);
-  if(hair) lines.push(`Hair: ${hair}.`);
-
-  // Theme/pet
-  if(theme && theme.toLowerCase() !== "no theme") lines.push(`Character theme/cosplay: ${theme}.`);
-  if(pet && pet.toLowerCase() !== "no pet") lines.push(`Companion animal/pet: ${pet}.`);
-
-  // Outfit
-  const outfitParts = [];
-  if(outfitSet && outfitSet.toLowerCase() !== "no outfit set") outfitParts.push(`Set: ${outfitSet}`);
-  if(top) outfitParts.push(`Top: ${top}`);
-  if(bottom) outfitParts.push(`Bottom: ${bottom}`);
-  if(outerwear && outerwear.toLowerCase() !== "no outerwear") outfitParts.push(`Outerwear: ${outerwear}`);
-  if(outfitParts.length) lines.push(`Outfit: ${outfitParts.join(" | ")}.`);
-  if(shoes) lines.push(`Shoes: ${shoes}.`);
-
-  // Props/fantasy/baby
-  if(props.length && !props.some(v=>v.toLowerCase()==="no props")) lines.push(`Props/held items: ${props.join(", ")}.`);
-  if(fantasy.length && !fantasy.some(v=>v.toLowerCase()==="no fantasy elements")) lines.push(`Fantasy elements: ${fantasy.join(", ")}.`);
-  if(babyItems.length) lines.push(`Baby items: ${babyItems.join(", ")}.`);
-
-  // Accessories/tattoos/piercings/bags
-  if(accessories.length) lines.push(`Accessories: ${accessories.join(", ")}.`);
-  if(bag && bag.toLowerCase()!=="no bag") lines.push(`Bag: ${bag}.`);
-  if(tattoos.length && !tattoos.some(v=>v.toLowerCase()==="no tattoos")) lines.push(`Tattoos: ${tattoos.join(", ")}.`);
-  if(bodyJewelry.length && !bodyJewelry.some(v=>v.toLowerCase()==="no piercings")) lines.push(`Body jewelry/piercings: ${bodyJewelry.join(", ")}.`);
-
-  // Background (BUG FIX)
-  if(background && background.toLowerCase() !== "no background") lines.push(`Background: ${background}.`);
-
-  // Render + rules
-  if(render_style) lines.push(`Render style: ${render_style}.`);
-  if(rules) lines.push(`Rules: ${rules}`);
-
-  return lines.join("\n\n");
-}
-
-/* ---------- randomize ---------- */
-function randPick(arr){
-  return arr[Math.floor(Math.random()*arr.length)];
-}
-function randomizeAll(){
-  SECTIONS.forEach(sec=>{
-    const options = [...sec.options, ...customPools[sec.id]];
-    if(sec.type==="single"){
-      // Respect "no background" more: it should appear often, not rare
-      if(sec.id === "background"){
-        const weighted = [...options, "no background", "no background"];
-        setSingle(sec.id, randPick(weighted));
-      }else{
-        setSingle(sec.id, randPick(options));
-      }
-    }else{
-      state[sec.id].clear();
-      // Pick 0-2 random (unless section is multi but needs something)
-      const pickCount = Math.floor(Math.random()*3); // 0..2
-      for(let i=0;i<pickCount;i++){
-        const v = randPick(options);
-        toggleMulti(sec.id, v);
-      }
-      // If any "no ..." chosen, it already self-cleans
+  },
+  C: {
+    badge:"Street Baddie (platform sandals)",
+    picks:{
+      setStyle:"Neon pop street glam",
+      outfitSet:"Graphic tee + cargo set (street)",
+      outerwear:"Bomber jacket (cute)",
+      shoes:"Platform slide sandals (puffy)",
+      shoeColorway:"Black/Lime",
+      bag:"Prada Nylon Bag",
+      bagColorway:"Lime Green",
+      bagHardware:"Silver hardware",
+      bagCarry:"Crossbody",
+      expression:"Girl bye side-eye",
+      pose:"Hand on hip attitude pose",
+      background:"Pink + lime duotone gradient",
+      lighting:"Studio glam lighting with sparkle bokeh",
+      textSticker:"Neon glow text sticker (pink/lime)",
+      textPlacement:"Top-left corner"
     }
-  });
-
-  renderControls();
-  $("#promptOut").value = buildPromptFromState();
-  toast("Randomized from left. ✅");
-}
-
-/* ---------- randomize 3 style options ---------- */
-function randomize3Styles(){
-  // Create 3 prompts using current selections but injecting style presets
-  // Optional: we can lightly randomize pose/outfit/shoes each time for variety
-  const originalSnapshot = snapshotState();
-
-  const a = makeVariant(PRESETS[0]);
-  const b = makeVariant(PRESETS[1]);
-  const c = makeVariant(PRESETS[2]);
-
-  // restore
-  restoreSnapshot(originalSnapshot);
-  renderControls();
-
-  setOption("A", a.prompt, PRESETS[0].badge);
-  setOption("B", b.prompt, PRESETS[1].badge);
-  setOption("C", c.prompt, PRESETS[2].badge);
-
-  toast("3 style options generated. Pick A/B/C. ✨");
-}
-
-function makeVariant(preset){
-  // Slight variety knobs
-  // randomize some glam/outfit/shoes/pose but keep background rule stable
-  const original = snapshotState();
-
-  // Light random for variety
-  lightRandom("pose_action", 2);
-  lightRandom("expression", 1);
-  lightRandomSingle("shoes");
-  lightRandomSingle("top");
-  lightRandomSingle("bottom");
-  // do NOT force background
-  // keep background as-is
-
-  const prompt = buildPromptFromState(preset.inject);
-  restoreSnapshot(original);
-  return { prompt };
-}
-
-function lightRandom(sectionId, maxPicks=2){
-  const sec = SECTIONS.find(s=>s.id===sectionId);
-  if(!sec || sec.type!=="multi") return;
-  state[sectionId].clear();
-  const options = [...sec.options, ...customPools[sectionId]];
-  const n = 1 + Math.floor(Math.random()*maxPicks);
-  for(let i=0;i<n;i++) toggleMulti(sectionId, randPick(options));
-}
-function lightRandomSingle(sectionId){
-  const sec = SECTIONS.find(s=>s.id===sectionId);
-  if(!sec || sec.type!=="single") return;
-  const options = [...sec.options, ...customPools[sectionId]];
-  setSingle(sectionId, randPick(options));
-}
-
-function setOption(letter, text, badge){
-  $(`#prompt${letter}`).value = text;
-  const badgeEl = $(`#badge${letter} .badgeText`);
-  if(badgeEl) badgeEl.textContent = badge || "—";
-}
-
-/* ---------- snapshot helpers ---------- */
-function snapshotState(){
-  const snap = {};
-  Object.keys(state).forEach(k=>{
-    if(state[k] instanceof Set) snap[k] = new Set([...state[k]]);
-    else snap[k] = state[k];
-  });
-  return snap;
-}
-function restoreSnapshot(snap){
-  Object.keys(snap).forEach(k=>{
-    if(snap[k] instanceof Set) state[k] = new Set([...snap[k]]);
-    else state[k] = snap[k];
-  });
-}
-
-/* ---------- copy / toast ---------- */
-async function copyText(txt){
-  try{
-    await navigator.clipboard.writeText(txt);
-    toast("Copied. ✅");
-  }catch{
-    toast("Copy blocked. Tap and copy manually.");
   }
-}
-let toastTimer = null;
+};
+
 function toast(msg){
-  const t = $("#toast");
-  t.textContent = msg;
+  const t=$("#toast");
+  if(!t) return;
+  t.textContent=msg;
   t.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>t.classList.remove("show"), 1800);
+  clearTimeout(window.__tt);
+  window.__tt=setTimeout(()=>t.classList.remove("show"),1200);
 }
 
-/* ---------- events ---------- */
-function wireEvents(){
-  // Pills + add custom
-  $("#controls").addEventListener("click", (e)=>{
-    const pill = e.target.closest(".pill");
-    if(pill){
-      const sectionId = pill.dataset.section;
-      const value = pill.dataset.value;
-      const sec = SECTIONS.find(s=>s.id===sectionId);
-      if(!sec) return;
+function initDefaults(){
+  for(const s of SECTIONS){
+    if(s.type==="single") state[s.id]=s.default ?? "";
+    else state[s.id]=new Set(s.default ?? []);
+  }
+}
 
-      if(sec.type==="single"){
-        setSingle(sectionId, value);
-      }else{
-        toggleMulti(sectionId, value);
+function joinMulti(set){
+  const arr=[...(set||[])];
+  return arr.length ? arr.join(", ") : "";
+}
+
+function render(){
+  const host=$("#sections");
+  if(!host) return;
+  host.innerHTML="";
+
+  const q = ($("#search")?.value||"").trim().toLowerCase();
+  const filtered = !q ? SECTIONS : SECTIONS.filter(s=>{
+    const hay=(s.label+" "+s.id+" "+s.options.join(" ")).toLowerCase();
+    return hay.includes(q);
+  });
+
+  $("#sectionCount").textContent = `${filtered.length} sections`;
+
+  for(const s of filtered){
+    const wrap=document.createElement("div");
+    wrap.className="section";
+    wrap.id=`sec-${s.id}`;
+
+    const hd=document.createElement("div");
+    hd.className="hd";
+
+    const left=document.createElement("div");
+    left.className="left";
+
+    const lbl=document.createElement("div");
+    lbl.className="lbl";
+    lbl.textContent=s.label;
+
+    const sub=document.createElement("div");
+    sub.className="sub";
+    sub.textContent = (s.type==="single" ? "Single select" : "Multi select");
+
+    left.appendChild(lbl);
+    left.appendChild(sub);
+
+    const badge=document.createElement("div");
+    badge.className="pill";
+    badge.textContent = (s.type==="single")
+      ? (state[s.id] ? "1 selected" : "0 selected")
+      : `${state[s.id]?.size||0} selected`;
+
+    hd.appendChild(left);
+    hd.appendChild(badge);
+
+    const bd=document.createElement("div");
+    bd.className="bd";
+
+    const chips=document.createElement("div");
+    chips.className="chips";
+
+    for(const opt of s.options){
+      const chip=document.createElement("div");
+      chip.className="chip";
+      chip.textContent=opt;
+
+      const on = (s.type==="single")
+        ? state[s.id]===opt
+        : state[s.id]?.has(opt);
+
+      if(on) chip.classList.add("on");
+
+      chip.addEventListener("click",()=>{
+        if(s.type==="single"){
+          state[s.id] = (state[s.id]===opt) ? "" : opt;
+        }else{
+          if(!state[s.id]) state[s.id]=new Set();
+          if(state[s.id].has(opt)) state[s.id].delete(opt);
+          else state[s.id].add(opt);
+        }
+        render();
+        buildPrompt();
+      });
+
+      chips.appendChild(chip);
+    }
+
+    bd.appendChild(chips);
+    wrap.appendChild(hd);
+    wrap.appendChild(bd);
+    host.appendChild(wrap);
+  }
+}
+
+function setPreset(key){
+  const p=PRESETS[key];
+  if(!p) return;
+  for(const s of SECTIONS){
+    const v=p.picks[s.id];
+    if(v===undefined) continue;
+    if(s.type==="single") state[s.id]=v;
+    else state[s.id]=new Set(Array.isArray(v)?v:[v]);
+  }
+  render();
+  buildPrompt();
+  toast(`Loaded ${p.badge}`);
+}
+
+function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function randomize(){
+  const get=(id)=>{
+    const s=SECTIONS.find(x=>x.id===id);
+    return s ? pickRandom(s.options) : "";
+  };
+  const getMulti=(id, n=2)=>{
+    const s=SECTIONS.find(x=>x.id===id);
+    if(!s) return new Set();
+    const set=new Set();
+    while(set.size<n) set.add(pickRandom(s.options));
+    return set;
+  };
+
+  for(const s of SECTIONS){
+    if(s.type==="single") state[s.id]=get(s.id);
+    else state[s.id]=getMulti(s.id, Math.min(2, s.options.length));
+  }
+
+  render();
+  buildPrompt();
+  toast("Randomized ✅");
+}
+
+function clearAll(){
+  for(const s of SECTIONS){
+    if(s.type==="single") state[s.id]="";
+    else state[s.id]=new Set();
+  }
+
+  ["charName","nameplate","quoteText","quoteStyle","customColors","customBag","customShoeColorway","extraNotes"].forEach(id=>{
+    const el=$("#"+id);
+    if(el) el.value="";
+  });
+
+  render();
+  buildPrompt();
+  toast("Cleared all ✅");
+}
+
+function resetDefaults(){
+  initDefaults();
+
+  ["charName","nameplate","quoteText","quoteStyle","customColors","customBag","customShoeColorway","extraNotes"].forEach(id=>{
+    const el=$("#"+id);
+    if(el) el.value="";
+  });
+
+  render();
+  buildPrompt();
+  toast("Defaults restored");
+}
+
+function buildPrompt(){
+  const charName=$("#charName")?.value.trim() || "";
+  const nameplate=$("#nameplate")?.value.trim() || "";
+  const quoteText=$("#quoteText")?.value.trim() || "";
+  const quoteStyle=$("#quoteStyle")?.value.trim() || "";
+  const customColors=$("#customColors")?.value.trim() || "";
+  const customBag=$("#customBag")?.value.trim() || "";
+  const customShoeColorway=$("#customShoeColorway")?.value.trim() || "";
+  const extraNotes=$("#extraNotes")?.value.trim() || "";
+
+  const lines=[];
+  if(charName) lines.push(`Character name: ${charName}.`);
+
+  lines.push(
+    `Ultra glossy glam doll character with ${state.skinTone || "a rich skin tone"}, `+
+    `${state.proportions || "oversized chibi glam proportions"}, `+
+    `${state.skinFinish || "hyper smooth glossy skin"}, dimensional depth, candy gloss finish.`
+  );
+
+  if(state.renderStyle) lines.push(`Render style: ${state.renderStyle}.`);
+
+  const hairBits=[state.hairStyle,state.hairColor,state.cap,state.edges].filter(Boolean);
+  if(hairBits.length) lines.push(`Hair: ${hairBits.join(" | ")}.`);
+
+  const faceBits=[
+    state.eyes,
+    joinMulti(state.lashes),
+    state.brows,
+    state.makeup,
+    state.lips,
+    joinMulti(state.extrasFace)
+  ].filter(Boolean);
+  if(faceBits.length) lines.push(`Face glam: ${faceBits.join(" | ")}.`);
+
+  const nailsBits=[state.nailLength,state.nailShape,state.nailFinish,state.nailColor].filter(Boolean);
+  const nailArt = joinMulti(state.nailArt);
+  if(nailsBits.length || nailArt){
+    lines.push(`Nails: ${[...nailsBits, nailArt].filter(Boolean).join(" | ")}.`);
+  }
+
+  if(state.expression) lines.push(`Expression: ${state.expression}.`);
+  if(state.pose) lines.push(`Pose/action: ${state.pose}.`);
+
+  const outfitBits=[];
+  if(state.setStyle) outfitBits.push(`Vibe: ${state.setStyle}`);
+  if(state.outfitSet && !String(state.outfitSet).startsWith("None")) outfitBits.push(`Outfit set: ${state.outfitSet}`);
+  if(state.top) outfitBits.push(`Top: ${state.top}`);
+  if(state.bottom) outfitBits.push(`Bottom: ${state.bottom}`);
+  if(state.outerwear && state.outerwear!=="None") outfitBits.push(`Outerwear: ${state.outerwear}`);
+  if(outfitBits.length) lines.push(`Outfit: ${outfitBits.join(" | ")}.`);
+
+  if(state.shoes){
+    const cw = customShoeColorway || state.shoeColorway;
+    lines.push(`Shoes: ${state.shoes}${cw ? ` | colorway: ${cw}` : ""}.`);
+  }
+
+  const accBits=[];
+  const jew=joinMulti(state.jewelry);
+  if(jew) accBits.push(`Jewelry: ${jew}`);
+  if(nameplate) accBits.push(`Nameplate necklace text: "${nameplate}"`);
+  if(state.bag && state.bag!=="None"){
+    accBits.push(`Pocketbook: ${state.bag} | colorway: ${state.bagColorway || "Black"} | hardware: ${state.bagHardware || "Gold hardware"} | carry: ${state.bagCarry || "Handheld"}`);
+  }
+  if(customBag) accBits.push(`Bag notes: ${customBag}`);
+  if(state.prop && state.prop!=="None") accBits.push(`Prop: ${state.prop}`);
+
+  // ✅ Sticker text rules (optional)
+  if(state.textSticker && !String(state.textSticker).startsWith("None")){
+    const txt = quoteText ? `"${quoteText}"` : "(use quote text input)";
+    const sty = quoteStyle ? quoteStyle : "high-impact sticker typography";
+    accBits.push(`Text sticker: ${state.textSticker} | placement: ${state.textPlacement} | text: ${txt} | style: ${sty}`);
+  }
+
+  if(accBits.length) lines.push(`Accessories: ${accBits.join(" | ")}.`);
+
+  if(state.background) lines.push(`Background: ${state.background}.`);
+  if(state.lighting) lines.push(`Lighting: ${state.lighting}, sparkle bokeh accents, high resolution 4K.`);
+
+  if(customColors) lines.push(`Color notes: ${customColors}.`);
+  if(extraNotes) lines.push(`Extra notes: ${extraNotes}.`);
+
+  const nw=joinMulti(state.noWords);
+  if(nw) lines.push(`Rules: ${nw}.`);
+
+  lines.push("Clean subject edges, crisp details, premium polish.");
+
+  $("#output").value = lines.join("\n\n");
+}
+
+function copyOut(){
+  const txt=$("#output")?.value || "";
+  navigator.clipboard.writeText(txt).then(()=>toast("Copied ✅")).catch(()=>{
+    $("#output").select();
+    document.execCommand("copy");
+    toast("Copied ✅");
+  });
+}
+
+function setupSearch(){
+  const el=$("#search");
+  if(!el) return;
+  el.addEventListener("input", ()=>render());
+  el.addEventListener("keydown", (e)=>{
+    if(e.key==="Enter"){
+      e.preventDefault();
+      const first = $("#sections .section");
+      if(first){
+        first.scrollIntoView({behavior:"smooth", block:"start"});
+        toast("Jumped to results");
       }
-      renderControls();
-      $("#promptOut").value = buildPromptFromState();
-      return;
-    }
-
-    const addBtn = e.target.closest("[data-custom-add]");
-    if(addBtn){
-      const sectionId = addBtn.dataset.customAdd;
-      const input = document.querySelector(`[data-custom-input="${sectionId}"]`);
-      if(!input) return;
-      const val = (input.value || "").trim();
-      if(!val) return;
-
-      // prevent duplicates (case-insensitive)
-      const sec = SECTIONS.find(s=>s.id===sectionId);
-      const existing = [...sec.options, ...customPools[sectionId]].map(x=>x.toLowerCase());
-      if(existing.includes(val.toLowerCase())){
-        toast("That option already exists.");
-        input.value = "";
-        return;
-      }
-
-      customPools[sectionId].push(val);
-      input.value = "";
-      renderControls();
-      toast("Added custom option. ✅");
-    }
-  });
-
-  // Top buttons
-  $("#randBtn").addEventListener("click", randomizeAll);
-  $("#rand3Btn").addEventListener("click", randomize3Styles);
-  $("#clearBtn").addEventListener("click", ()=>{
-    initState();
-    renderControls();
-    $("#promptOut").value = "";
-    $("#promptA").value = "";
-    $("#promptB").value = "";
-    $("#promptC").value = "";
-    setOption("A","", "—");
-    setOption("B","", "—");
-    setOption("C","", "—");
-    toast("Cleared. ✅");
-  });
-
-  // Generate from left
-  $("#genBtn").addEventListener("click", ()=>{
-    $("#promptOut").value = buildPromptFromState();
-    toast("Generated from left. ✅");
-  });
-
-  // Copy prompt output
-  $("#copyBtn").addEventListener("click", ()=>{
-    copyText($("#promptOut").value || "");
-  });
-
-  // Copy/use option A/B/C (event delegation on document)
-  document.addEventListener("click", (e)=>{
-    const copyBtn = e.target.closest("[data-copy]");
-    if(copyBtn){
-      const L = copyBtn.dataset.copy;
-      const txt = $(`#prompt${L}`).value || "";
-      copyText(txt);
-      return;
-    }
-    const useBtn = e.target.closest("[data-use]");
-    if(useBtn){
-      const L = useBtn.dataset.use;
-      const txt = $(`#prompt${L}`).value || "";
-      $("#promptOut").value = txt;
-      toast(`Option ${L} applied to output. ✅`);
-      return;
     }
   });
 }
 
-/* ---------- boot ---------- */
-initState();
-renderControls();
-wireEvents();
+// Bind AFTER DOM loads (prevents null addEventListener errors)
+document.addEventListener("DOMContentLoaded", ()=>{
+  initDefaults();
+  setupSearch();
+  render();
+  buildPrompt();
 
-// Auto-generate initial output so you see it working immediately:
-$("#promptOut").value = buildPromptFromState();
+  $("#btnBuild").addEventListener("click", buildPrompt);
+  $("#btnCopy").addEventListener("click", copyOut);
+  $("#btnRandom").addEventListener("click", randomize);
+  $("#btnClear").addEventListener("click", clearAll);
+  $("#btnReset").addEventListener("click", resetDefaults);
+
+  $("#presetA").addEventListener("click", ()=>setPreset("A"));
+  $("#presetB").addEventListener("click", ()=>setPreset("B"));
+  $("#presetC").addEventListener("click", ()=>setPreset("C"));
+
+  ["charName","nameplate","quoteText","quoteStyle","customColors","customBag","customShoeColorway","extraNotes"].forEach(id=>{
+    $("#"+id).addEventListener("input", buildPrompt);
+  });
+});
